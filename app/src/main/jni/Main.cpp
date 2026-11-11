@@ -43,3 +43,62 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
         env->SetObjectArrayElement(ret, i, env->NewStringUTF(features[i]));
 
     return (ret);
+}
+
+//Target main lib here
+#define targetLibName OBFUSCATE("libil2cpp.so")
+
+void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featName, jint value, jlong Lvalue, jboolean boolean, jstring text) {
+
+    switch (featNum) {
+        case 0:
+            goldOn = boolean;
+            break;
+        case 1:
+            mineOn = boolean;
+            break;
+        case 2:
+            rangeOn = boolean;
+            break;
+        case 3:
+            rangeValue = (float) value;
+            break;
+        default:
+            break;
+    }
+}
+
+long (*old_get_Gold)();
+long get_Gold() {
+    if (goldOn) return (long) goldValue;
+    return old_get_Gold();
+}
+
+int (*old_get_GoldPerMine)(void *instance);
+int get_GoldPerMine(void *instance) {
+    if (instance != nullptr && mineOn) return mineValue;
+    return old_get_GoldPerMine(instance);
+}
+
+float (*old_get_AttackRange)(void *instance);
+float get_AttackRange(void *instance) {
+    if (instance != nullptr && rangeOn) return rangeValue;
+    return old_get_AttackRange(instance);
+}
+
+void hack_thread() {
+    while (!isLibraryLoaded(targetLibName)) {
+        sleep(1);
+    }
+
+    HOOK(targetLibName, "0x230A908", get_Gold, old_get_Gold);
+    HOOK(targetLibName, "0x20F4D1C", get_GoldPerMine, old_get_GoldPerMine);
+    HOOK(targetLibName, "0x217D1CC", get_AttackRange, old_get_AttackRange);
+
+    LOGI(OBFUSCATE("Done"));
+}
+
+__attribute__((constructor))
+void lib_main() {
+    std::thread(hack_thread).detach();
+}
