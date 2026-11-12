@@ -22,7 +22,7 @@ void Init(JNIEnv *env, jobject thiz, jobject ctx, jobject title, jobject subtitl
            nullptr);
 
     //Toast saat menu terbuka
-    Toast(env, ctx, OBFUSCATE("Modded by 0xasterix"), ToastLength::LENGTH_LONG);
+    Toast(env, ctx, OBFUSCATE("Modded by Asterix"), ToastLength::LENGTH_LONG);
 }
     
 
