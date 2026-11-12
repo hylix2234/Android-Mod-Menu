@@ -2,28 +2,29 @@
 #include "Menu/Menu.hpp"
 
 void Init(JNIEnv *env, jobject thiz, jobject ctx, jobject title, jobject subtitle) {
-    //Set sub title
-    setText(env, title, OBFUSCATE("<b>Modded by (yourname)</b>"));
+    //Judul menu
+    setText(env, title, OBFUSCATE("<b>Mod Menu by Asterix</b>"));
 
-    //Set sub title
+    //Teks berjalan di bawah judul
     setText(env, subtitle, OBFUSCATE("<b><marquee><p style=\"font-size:30\">"
-                                     "<p style=\"color:green;\">Modded by LGL</p> | "
-                                     "https://github.com/LGLTeam | Lorem Ipsum is simply dummy text of the printing and typesetting</p>"
+                                     "<p style=\"color:green;\">Modded by Asterix</p>"
+                                     " | Grow Castle | Jangan lupa Subscribe</p>"
                                      "</marquee></b>"));
 
-    //Dialog Example
+    //Dialog sambutan (tanpa tombol link)
     Dialog(env,
            ctx,
-           OBFUSCATE("Welcome to your mod menu"),
-           OBFUSCATE("Thanks for the installation and call to action"),
-           OBFUSCATE("Visit"), // set nullptr if btn-link is not needed
-           OBFUSCATE("Close"),
-           3, // set 0 if auto-close is not needed
-           OBFUSCATE("https://github.com/LGLTeam")); // set nullptr if btn-link is not needed
+           OBFUSCATE("Mod Menu by Asterix"),
+           OBFUSCATE("Jangan lupa istirahat."),
+           nullptr,
+           OBFUSCATE("Tutup"),
+           3,
+           nullptr);
 
-    //Toast Example
-    Toast(env, ctx, OBFUSCATE("Modded by YOU"), ToastLength::LENGTH_LONG);
+    //Toast saat menu terbuka
+    Toast(env, ctx, OBFUSCATE("Modded by 0xasterix"), ToastLength::LENGTH_LONG);
 }
+    
 
 jstring Icon(JNIEnv *env, jobject thiz) {
     //Use https://www.base64encode.org/ to encode your image to base64
