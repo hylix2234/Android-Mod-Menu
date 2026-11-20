@@ -12,14 +12,14 @@ void Init(JNIEnv *env, jobject thiz, jobject ctx, jobject title, jobject subtitl
                                      "</marquee></b>"));
 
     //Dialog sambutan (tanpa tombol link)
-    Dialog(env,
-           ctx,
-           OBFUSCATE("Mod Menu by Asterix"),
-           OBFUSCATE("Jangan lupa istirahat."),
-           nullptr,
-           OBFUSCATE("Tutup"),
-           3,
-           nullptr);
+   // Dialog(env,
+         //  ctx,
+         //  OBFUSCATE("Mod Menu by Asterix"),
+          // OBFUSCATE("Jangan lupa istirahat."),
+        //   nullptr,
+         //  OBFUSCATE("Tutup"),
+         //  3,
+        //   nullptr);
 
     //Toast saat menu terbuka
     Toast(env, ctx, OBFUSCATE("Modded by Asterix"), ToastLength::LENGTH_LONG);
