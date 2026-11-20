@@ -17,21 +17,31 @@
 #include "Includes/Macros.h"
 #include "dobby.h"
 
-// Status fitur (diubah dari menu)
-bool goldOn = false, mineOn = false, rangeOn = false;
-// Nilai yang dipakai (bisa diubah lewat slider)
-int goldValue = 999999999;
-int mineValue = 99999;
-float rangeValue = 50.0f;
+// Status fitur
+bool antiHackOn = false, crystalOn = false;
+bool atkOn = false, defOn = false, cdOn = false;
+// Nilai pengali (slider)
+int crystalMul = 2;
+int statMul = 2;
+// Instance untuk UnlockAllFloor (ditangkap otomatis)
+void *floorInstance = nullptr;
 
 jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
     jobjectArray ret;
 
     const char *features[] = {
-            OBFUSCATE("Toggle_Gold Banyak"),                 // featNum 0
-            OBFUSCATE("Toggle_Gold per Tambang"),            // featNum 1
-            OBFUSCATE("Toggle_Jangkauan Serang"),            // featNum 2
-            OBFUSCATE("SeekBar_Nilai Jangkauan_1_200"),      // featNum 3
+            OBFUSCATE("Category_Aman"),
+            OBFUSCATE("Toggle_Anti Deteksi Hack"),          // featNum 0
+            OBFUSCATE("Category_Kristal"),
+            OBFUSCATE("Toggle_Kristal Lebih Banyak"),       // featNum 1
+            OBFUSCATE("SeekBar_Pengali Kristal_1_5"),       // featNum 2
+            OBFUSCATE("Category_Stat"),
+            OBFUSCATE("Toggle_Serangan Naik"),              // featNum 3
+            OBFUSCATE("Toggle_Pertahanan Naik"),            // featNum 4
+            OBFUSCATE("Toggle_Cooldown Skill Turun"),       // featNum 5
+            OBFUSCATE("SeekBar_Pengali Stat_1_5"),          // featNum 6
+            OBFUSCATE("Category_Lain"),
+            OBFUSCATE("Button_Buka Semua Lantai"),          // featNum 7
     };
 
     int Total_Feature = (sizeof features / sizeof features[0]);
@@ -52,38 +62,79 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
 
     switch (featNum) {
         case 0:
-            goldOn = boolean;
+            antiHackOn = boolean;
             break;
         case 1:
-            mineOn = boolean;
+            crystalOn = boolean;
             break;
         case 2:
-            rangeOn = boolean;
+            crystalMul = value;
             break;
         case 3:
-            rangeValue = (float) value;
+            atkOn = boolean;
+            break;
+        case 4:
+            defOn = boolean;
+            break;
+        case 5:
+            cdOn = boolean;
+            break;
+        case 6:
+            statMul = value;
+            break;
+        case 7:
+            if (floorInstance != nullptr) {
+                ((void (*)(void *)) getAbsoluteAddress(targetLibName, 0x195F26C))(floorInstance);
+            }
             break;
         default:
             break;
     }
 }
 
-long (*old_get_Gold)();
-long get_Gold() {
-    if (goldOn) return (long) goldValue;
-    return old_get_Gold();
+// Anti deteksi hack kristal
+bool (*old_IsHackCrystal)(void *instance);
+bool IsHackCrystal(void *instance) {
+    if (antiHackOn) return false;
+    return old_IsHackCrystal(instance);
 }
 
-int (*old_get_GoldPerMine)(void *instance);
-int get_GoldPerMine(void *instance) {
-    if (instance != nullptr && mineOn) return mineValue;
-    return old_get_GoldPerMine(instance);
+// Kristal masuk dikali pengali (hanya yang positif)
+void (*old_AddCrystal)(void *instance, int crystal, void *source, int reason);
+void AddCrystal(void *instance, int crystal, void *source, int reason) {
+    if (instance != nullptr && crystalOn && crystal > 0) {
+        crystal *= crystalMul;
+    }
+    old_AddCrystal(instance, crystal, source, reason);
 }
 
-float (*old_get_AttackRange)(void *instance);
-float get_AttackRange(void *instance) {
-    if (instance != nullptr && rangeOn) return rangeValue;
-    return old_get_AttackRange(instance);
+// Stat (return double)
+double (*old_BonusAtk)(void *instance);
+double BonusAtk(void *instance) {
+    double v = old_BonusAtk(instance);
+    if (instance != nullptr && atkOn) return v * statMul;
+    return v;
+}
+
+double (*old_BonusDef)(void *instance);
+double BonusDef(void *instance) {
+    double v = old_BonusDef(instance);
+    if (instance != nullptr && defOn) return v * statMul;
+    return v;
+}
+
+double (*old_BonusCD)(void *instance);
+double BonusCD(void *instance) {
+    double v = old_BonusCD(instance);
+    if (instance != nullptr && cdOn) return v * statMul;
+    return v;
+}
+
+// Tangkap instance untuk tombol Buka Semua Lantai
+int (*old_GetHighestFloor)(void *instance);
+int GetHighestFloor(void *instance) {
+    if (instance != nullptr) floorInstance = instance;
+    return old_GetHighestFloor(instance);
 }
 
 void hack_thread() {
@@ -91,9 +142,12 @@ void hack_thread() {
         sleep(1);
     }
 
-    HOOK(targetLibName, "0x230A908", get_Gold, old_get_Gold);
-    HOOK(targetLibName, "0x20F4D1C", get_GoldPerMine, old_get_GoldPerMine);
-    HOOK(targetLibName, "0x217D1CC", get_AttackRange, old_get_AttackRange);
+    HOOK(targetLibName, "0x1F538E8", IsHackCrystal, old_IsHackCrystal);
+    HOOK(targetLibName, "0x1969458", AddCrystal, old_AddCrystal);
+    HOOK(targetLibName, "0x1FB51FC", BonusAtk, old_BonusAtk);
+    HOOK(targetLibName, "0x1FB520C", BonusDef, old_BonusDef);
+    HOOK(targetLibName, "0x1FB51EC", BonusCD, old_BonusCD);
+    HOOK(targetLibName, "0x195E73C", GetHighestFloor, old_GetHighestFloor);
 
     LOGI(OBFUSCATE("Done"));
 }
