@@ -8,7 +8,7 @@ void Init(JNIEnv *env, jobject thiz, jobject ctx, jobject title, jobject subtitl
     //Teks berjalan di bawah judul
     setText(env, subtitle, OBFUSCATE("<b><marquee><p style=\"font-size:30\">"
                                      "<p style=\"color:green;\">Modded by Asterix</p>"
-                                     " | Grow Castle | Jangan lupa Subscribe</p>"
+                                     "| Jangan lupa Subscribe</p>"
                                      "</marquee></b>"));
 
     //Dialog sambutan (tanpa tombol link)
