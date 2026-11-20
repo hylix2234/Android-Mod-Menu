@@ -84,7 +84,7 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
             break;
         case 7:
             if (floorInstance != nullptr) {
-                ((void (*)(void *)) getAbsoluteAddress(targetLibName, 0x195F26C))(floorInstance);
+                ((void (*)(void *)) getAbsoluteAddress(targetLibName, "0x195F26C"))(floorInstance);
             }
             break;
         default:
