@@ -325,3 +325,670 @@ public class Menu {
 
         Init(context, title, subTitle);
         }
+    public void ShowMenu() {
+        rootFrame.addView(mRootContainer);
+
+        final Handler handler = new Handler();
+        handler.postDelayed(new Runnable() {
+            boolean viewLoaded = false;
+
+            @Override
+            public void run() {
+                //If the save preferences is enabled, it will check if game lib is loaded before starting menu
+                //Comment the if-else code out except startService if you want to run the app and test preferences
+                if (Preferences.loadPref && !IsGameLibLoaded() && !stopChecking) {
+                    if (!viewLoaded) {
+                        Category(mods, "Save preferences was been enabled. Waiting for game lib to be loaded...\n\nForce load menu may not apply mods instantly. You would need to reactivate them again");
+                        Button(mods, -100, "Force load menu");
+                        viewLoaded = true;
+                    }
+                    handler.postDelayed(this, 600);
+                } else {
+                    mods.removeAllViews();
+                    featureList(GetFeatureList(), mods);
+                }
+            }
+        }, 500);
+    }
+
+    @SuppressLint("WrongConstant")
+    public void SetWindowManagerWindowService() {
+        //Variable to check later if the phone supports Draw over other apps permission
+        int iparams = Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O ? 2038 : 2002;
+        vmParams = new WindowManager.LayoutParams(
+                WRAP_CONTENT,
+                WRAP_CONTENT,
+                iparams,
+                8 | FLAG_TRANSLUCENT_STATUS,
+                -3);
+        //params = new WindowManager.LayoutParams(WindowManager.LayoutParams.LAST_APPLICATION_WINDOW, 8, -3);
+        vmParams.gravity = 51;
+        vmParams.x = POS_X;
+        vmParams.y = POS_Y;
+
+        mWindowManager = (WindowManager) getContext.getSystemService(Context.WINDOW_SERVICE);
+        mWindowManager.addView(rootFrame, vmParams);
+
+        overlayRequired = true;
+    }
+
+    @SuppressLint("WrongConstant")
+    public void SetWindowManagerActivity() {
+        vmParams = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                POS_X,//initialX
+                POS_Y,//initialy
+                WindowManager.LayoutParams.TYPE_APPLICATION,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
+                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_OVERSCAN |
+                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN |
+                        WindowManager.LayoutParams.FLAG_SPLIT_TOUCH,
+                PixelFormat.TRANSPARENT
+        );
+        vmParams.gravity = 51;
+        vmParams.x = POS_X;
+        vmParams.y = POS_Y;
+
+        mWindowManager = ((Activity) getContext).getWindowManager();
+        mWindowManager.addView(rootFrame, vmParams);
+    }
+
+    private View.OnTouchListener onTouchListener() {
+        return new View.OnTouchListener() {
+            final View collapsedView = mCollapsed;
+            final View expandedView = mExpanded;
+            private float initialTouchX, initialTouchY;
+            private int initialX, initialY;
+
+            public boolean onTouch(View view, MotionEvent motionEvent) {
+                switch (motionEvent.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        initialX = vmParams.x;
+                        initialY = vmParams.y;
+                        initialTouchX = motionEvent.getRawX();
+                        initialTouchY = motionEvent.getRawY();
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                        int rawX = (int) (motionEvent.getRawX() - initialTouchX);
+                        int rawY = (int) (motionEvent.getRawY() - initialTouchY);
+                        mExpanded.setAlpha(1f);
+                        mCollapsed.setAlpha(1f);
+                        //The check for Xdiff <10 && YDiff< 10 because sometime elements moves a little while clicking.
+                        //So that is click event.
+                        if (rawX < 10 && rawY < 10 && isViewCollapsed()) {
+                            //When user clicks on the image view of the collapsed layout,
+                            //visibility of the collapsed layout will be changed to "View.GONE"
+                            //and expanded view will become visible.
+                            try {
+                                collapsedView.setVisibility(View.GONE);
+                                expandedView.setVisibility(View.VISIBLE);
+                            } catch (NullPointerException ignored) {
+                            }
+                        }
+                        return true;
+                    case MotionEvent.ACTION_MOVE:
+                        mExpanded.setAlpha(0.5f);
+                        mCollapsed.setAlpha(0.5f);
+                        //Calculate the X and Y coordinates of the view.
+                        vmParams.x = initialX + ((int) (motionEvent.getRawX() - initialTouchX));
+                        vmParams.y = initialY + ((int) (motionEvent.getRawY() - initialTouchY));
+                        //Update the layout with new X & Y coordinate
+                        mWindowManager.updateViewLayout(rootFrame, vmParams);
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+        };
+    }
+
+    private void featureList(String[] listFT, LinearLayout linearLayout) {
+        //Currently looks messy right now. Let me know if you have improvements
+        int featNum, subFeat = 0;
+        LinearLayout llBak = linearLayout;
+
+        for (int i = 0; i < listFT.length; i++) {
+            boolean switchedOn = false;
+            //Log.i("featureList", listFT[i]);
+            String feature = listFT[i];
+            if (feature.contains("_True")) {
+                switchedOn = true;
+                feature = feature.replaceFirst("_True", "");
+            }
+
+            linearLayout = llBak;
+            if (feature.contains("CollapseAdd_")) {
+                //if (collapse != null)
+                linearLayout = mCollapse;
+                feature = feature.replaceFirst("CollapseAdd_", "");
+            }
+            String[] str = feature.split("_");
+
+            //Assign feature number
+            if (TextUtils.isDigitsOnly(str[0]) || str[0].matches("-[0-9]*")) {
+                featNum = Integer.parseInt(str[0]);
+                feature = feature.replaceFirst(str[0] + "_", "");
+                subFeat++;
+            } else {
+                //Subtract feature number. We don't want to count ButtonLink, Category, RichTextView and RichWebView
+                featNum = i - subFeat;
+            }
+            String[] strSplit = feature.split("_");
+            switch (strSplit[0]) {
+                case "Toggle":
+                    Switch(linearLayout, featNum, strSplit[1], switchedOn);
+                    break;
+                case "SeekBar":
+                    SeekBar(linearLayout, featNum, strSplit[1], Integer.parseInt(strSplit[2]), Integer.parseInt(strSplit[3]));
+                    break;
+                case "Button":
+                    Button(linearLayout, featNum, strSplit[1]);
+                    break;
+                case "ButtonOnOff":
+                    ButtonOnOff(linearLayout, featNum, strSplit[1], switchedOn);
+                    break;
+                case "Spinner":
+                    TextView(linearLayout, strSplit[1]);
+                    Spinner(linearLayout, featNum, strSplit[1], strSplit[2]);
+                    break;
+                case "InputText":
+                    InputText(linearLayout, featNum, strSplit[1]);
+                    break;
+                case "InputValue":
+                    if (strSplit.length == 3)
+                        InputNum(linearLayout, featNum, strSplit[2], Integer.parseInt(strSplit[1]));
+                    if (strSplit.length == 2)
+                        InputNum(linearLayout, featNum, strSplit[1], 0);
+                    break;
+                case "InputLValue":
+                    if (strSplit.length == 3)
+                        InputLNum(linearLayout, featNum, strSplit[2], Long.parseLong(strSplit[1]));
+                    if (strSplit.length == 2)
+                        InputLNum(linearLayout, featNum, strSplit[1], 0);
+                    break;
+                case "CheckBox":
+                    CheckBox(linearLayout, featNum, strSplit[1], switchedOn);
+                    break;
+                case "RadioButton":
+                    RadioButton(linearLayout, featNum, strSplit[1], strSplit[2]);
+                    break;
+                case "Collapse":
+                    Collapse(linearLayout, strSplit[1], switchedOn);
+                    subFeat++;
+                    break;
+                case "ButtonLink":
+                    subFeat++;
+                    ButtonLink(linearLayout, strSplit[1], strSplit[2]);
+                    break;
+                case "Category":
+                    subFeat++;
+                    Category(linearLayout, strSplit[1]);
+                    break;
+                case "RichTextView":
+                    subFeat++;
+                    TextView(linearLayout, strSplit[1]);
+                    break;
+                case "RichWebView":
+                    subFeat++;
+                    WebTextView(linearLayout, strSplit[1]);
+                    break;
+            }
+        }
+    }
+        private void Switch(LinearLayout linLayout, final int featNum, final String featName, boolean swiOn) {
+        final Switch switchR = new Switch(getContext);
+        int[][] states = new int[][]{
+                new int[]{-android.R.attr.state_enabled},
+                new int[]{android.R.attr.state_checked},
+                new int[]{}
+        };
+        ColorStateList thumbStates = new ColorStateList(states, new int[]{
+                Color.GRAY,
+                ToggleON, // ON
+                ToggleOFF // OFF
+        });
+        ColorStateList trackStates = new ColorStateList(states, new int[]{
+                Color.DKGRAY,
+                TrackON, // ON
+                TrackOFF // OFF
+        });
+        //Set colors of the switch. Comment out if you don't like it
+        try {
+            switchR.getThumbDrawable().setTintList(thumbStates);
+            switchR.getTrackDrawable().setTintList(trackStates);
+        } catch (NullPointerException ex) {
+            Log.d(TAG, String.valueOf(ex));
+        }
+        switchR.setText(featName);
+        switchR.setTextColor(TEXT_COLOR_2);
+        switchR.setPadding(dp(10), dp(6), dp(10), dp(6));
+        switchR.setChecked(Preferences.loadPrefBool(featName, featNum, swiOn));
+        switchR.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton compoundButton, boolean bool) {
+                Preferences.changeFeatureBool(featName, featNum, bool);
+                switch (featNum) {
+                    case -1: //Save perferences
+                        Preferences.with(switchR.getContext()).writeBoolean(-1, bool);
+                        if (!bool) Preferences.with(switchR.getContext()).clear(); //Clear perferences if switched off
+                        break;
+                    case -3:
+                        Preferences.isExpanded = bool;
+                        scrollView.setLayoutParams(bool ? scrlLLExpanded : scrlLL);
+                        break;
+                }
+            }
+        });
+
+        linLayout.addView(switchR);
+    }
+
+    private void SeekBar(LinearLayout linLayout, final int featNum, final String featName, final int min, int max) {
+        int loadedProg = Preferences.loadPrefInt(featName, featNum);
+        LinearLayout linearLayout = new LinearLayout(getContext);
+        linearLayout.setPadding(dp(10), dp(6), dp(4), dp(6));
+        linearLayout.setOrientation(LinearLayout.VERTICAL);
+        linearLayout.setGravity(Gravity.CENTER);
+
+        final TextView textView = new TextView(getContext);
+        textView.setText(Html.fromHtml(featName + ": <font color='" + NumberTxtColor + "'>" + ((loadedProg == 0) ? min : loadedProg)));
+        textView.setTextColor(TEXT_COLOR_2);
+
+        SeekBar seekBar = new SeekBar(getContext);
+        seekBar.setPadding(25, 10, 35, 10);
+        seekBar.setMax(max);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            seekBar.setMin(min); //setMin for Oreo and above
+        seekBar.setProgress((loadedProg == 0) ? min : loadedProg);
+        seekBar.getThumb().setColorFilter(SeekBarColor, PorterDuff.Mode.SRC_ATOP);
+        seekBar.getProgressDrawable().setColorFilter(SeekBarProgressColor, PorterDuff.Mode.SRC_ATOP);
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            public void onStopTrackingTouch(SeekBar seekBar) {
+            }
+
+            public void onProgressChanged(SeekBar seekBar, int i, boolean z) {
+                //if progress is greater than minimum, don't go below. Else, set progress
+                seekBar.setProgress(i < min ? min : i);
+                Preferences.changeFeatureInt(featName, featNum, i < min ? min : i);
+                textView.setText(Html.fromHtml(featName + ": <font color='" + NumberTxtColor + "'>" + (i < min ? min : i)));
+            }
+        });
+        linearLayout.addView(textView);
+        linearLayout.addView(seekBar);
+
+        linLayout.addView(linearLayout);
+    }
+
+    private void Button(LinearLayout linLayout, final int featNum, final String featName) {
+        final Button button = new Button(getContext);
+        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
+        layoutParams.setMargins(dp(8), dp(4), dp(8), dp(4));
+        button.setLayoutParams(layoutParams);
+        button.setTextColor(TEXT_COLOR_2);
+        button.setAllCaps(false); //Disable caps to support html
+        button.setText(Html.fromHtml(featName));
+        button.setBackground(rounded(BTN_COLOR, ITEM_CORNER));
+        button.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                switch (featNum) {
+
+                    case -6:
+                        scrollView.removeView(mSettings);
+                        scrollView.addView(mods);
+                        break;
+                    case -100:
+                        stopChecking = true;
+                        break;
+                }
+                Preferences.changeFeatureInt(featName, featNum, 0);
+            }
+        });
+
+        linLayout.addView(button);
+    }
+
+    private void ButtonLink(LinearLayout linLayout, final String featName, final String url) {
+        final Button button = new Button(getContext);
+        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
+        layoutParams.setMargins(dp(8), dp(4), dp(8), dp(4));
+        button.setLayoutParams(layoutParams);
+        button.setAllCaps(false); //Disable caps to support html
+        button.setTextColor(TEXT_COLOR_2);
+        button.setText(Html.fromHtml(featName));
+        button.setBackground(rounded(BTN_COLOR, ITEM_CORNER));
+        button.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                intent.setData(Uri.parse(url));
+                getContext.startActivity(intent);
+            }
+        });
+        linLayout.addView(button);
+    }
+
+    private void ButtonOnOff(LinearLayout linLayout, final int featNum, String featName, boolean switchedOn) {
+        final Button button = new Button(getContext);
+        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
+        layoutParams.setMargins(dp(8), dp(4), dp(8), dp(4));
+        button.setLayoutParams(layoutParams);
+        button.setTextColor(TEXT_COLOR_2);
+        button.setAllCaps(false); //Disable caps to support html
+
+        final String finalfeatName = featName.replace("OnOff_", "");
+        boolean isOn = Preferences.loadPrefBool(featName, featNum, switchedOn);
+        if (isOn) {
+            button.setText(Html.fromHtml(finalfeatName + ": ON"));
+            button.setBackground(rounded(BtnON, ITEM_CORNER));
+            isOn = false;
+        } else {
+            button.setText(Html.fromHtml(finalfeatName + ": OFF"));
+            button.setBackground(rounded(BtnOFF, ITEM_CORNER));
+            isOn = true;
+        }
+        final boolean finalIsOn = isOn;
+        button.setOnClickListener(new View.OnClickListener() {
+            boolean isOn = finalIsOn;
+
+            public void onClick(View v) {
+                Preferences.changeFeatureBool(finalfeatName, featNum, isOn);
+                //Log.d(TAG, finalfeatName + " " + featNum + " " + isActive2);
+                if (isOn) {
+                    button.setText(Html.fromHtml(finalfeatName + ": ON"));
+                    button.setBackground(rounded(BtnON, ITEM_CORNER));
+                    isOn = false;
+                } else {
+                    button.setText(Html.fromHtml(finalfeatName + ": OFF"));
+                    button.setBackground(rounded(BtnOFF, ITEM_CORNER));
+                    isOn = true;
+                }
+            }
+        });
+        linLayout.addView(button);
+    }
+
+    private void Spinner(LinearLayout linLayout, final int featNum, final String featName, final String list) {
+        Log.d(TAG, "spinner " + featNum + " " + featName + " " + list);
+        final List<String> lists = new LinkedList<>(Arrays.asList(list.split(",")));
+
+        // Create another LinearLayout as a workaround to use it as a background
+        // to keep the down arrow symbol. No arrow symbol if setBackgroundColor set
+        LinearLayout linearLayout2 = new LinearLayout(getContext);
+        LinearLayout.LayoutParams layoutParams2 = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
+        layoutParams2.setMargins(dp(8), dp(2), dp(8), dp(2));
+        linearLayout2.setOrientation(LinearLayout.VERTICAL);
+        linearLayout2.setBackground(rounded(BTN_COLOR, ITEM_CORNER));
+        linearLayout2.setLayoutParams(layoutParams2);
+
+        final Spinner spinner = new Spinner(getContext, Spinner.MODE_DROPDOWN);
+        spinner.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
+        spinner.getBackground().setColorFilter(1, PorterDuff.Mode.SRC_ATOP); //trick to show white down arrow color
+        //Creating the ArrayAdapter instance having the list
+        ArrayAdapter aa = new ArrayAdapter(getContext, android.R.layout.simple_spinner_dropdown_item, lists);
+        aa.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        //Setting the ArrayAdapter data on the Spinner'
+        spinner.setAdapter(aa);
+        spinner.setSelection(Preferences.loadPrefInt(featName, featNum));
+        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                Preferences.changeFeatureInt(spinner.getSelectedItem().toString(), featNum, position);
+                ((TextView) parentView.getChildAt(0)).setTextColor(TEXT_COLOR_2);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
+        });
+        linearLayout2.addView(spinner);
+        linLayout.addView(linearLayout2);
+            }
+    private void InputNum(LinearLayout linLayout, final int featNum, final String featName, final int maxValue) {
+        LinearLayout linearLayout = new LinearLayout(getContext);
+        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
+        layoutParams.setMargins(dp(8), dp(4), dp(8), dp(4));
+
+        final Button button = new Button(getContext);
+        int num = Preferences.loadPrefInt(featName, featNum);
+        button.setText(Html.fromHtml(featName + ": <font color='" + NumberTxtColor + "'>" + num + "</font>"));
+        button.setAllCaps(false);
+        button.setLayoutParams(layoutParams);
+        button.setBackground(rounded(BTN_COLOR, ITEM_CORNER));
+        button.setTextColor(TEXT_COLOR_2);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                AlertDialog.Builder alertName = new AlertDialog.Builder(getContext);
+                final EditText editText = new EditText(getContext);
+                if (maxValue != 0)
+                    editText.setHint("Max value: " + maxValue);
+                editText.setInputType(InputType.TYPE_CLASS_NUMBER);
+                editText.setKeyListener(DigitsKeyListener.getInstance("0123456789-"));
+                InputFilter[] FilterArray = new InputFilter[1];
+                FilterArray[0] = new InputFilter.LengthFilter(10);
+                editText.setFilters(FilterArray);
+                editText.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+                    @Override
+                    public void onFocusChange(View v, boolean hasFocus) {
+                        InputMethodManager imm = (InputMethodManager) getContext.getSystemService(Context.INPUT_METHOD_SERVICE);
+                        if (hasFocus) {
+                            imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, InputMethodManager.HIDE_IMPLICIT_ONLY);
+                        } else {
+                            imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
+                        }
+                    }
+                });
+                editText.requestFocus();
+
+                alertName.setTitle("Input number");
+                alertName.setView(editText);
+                LinearLayout layoutName = new LinearLayout(getContext);
+                layoutName.setOrientation(LinearLayout.VERTICAL);
+                layoutName.addView(editText); // displays the user input bar
+                alertName.setView(layoutName);
+
+                alertName.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int whichButton) {
+                        int num;
+                        try {
+                            String inp = editText.getText().toString();
+                            num = Integer.parseInt(inp.isEmpty() ? "0" : inp);
+                            if (maxValue != 0 && num >= maxValue)
+                                num = maxValue;
+                        } catch (NumberFormatException ex) {
+                            if (maxValue != 0)
+                                num = maxValue;
+                            else
+                                num = Integer.MAX_VALUE;
+                        }
+
+                        button.setText(Html.fromHtml(featName + ": <font color='" + NumberTxtColor + "'>" + num + "</font>"));
+                        Preferences.changeFeatureInt(featName, featNum, num);
+                        editText.setFocusable(false);
+                    }
+                });
+
+                alertName.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int whichButton) {
+                        // dialog.cancel(); // closes dialog
+                        InputMethodManager imm = (InputMethodManager) getContext.getSystemService(Context.INPUT_METHOD_SERVICE);
+                        imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
+                    }
+                });
+
+                if (overlayRequired) {
+                    AlertDialog dialog = alertName.create(); // display the dialog
+                    Objects.requireNonNull(dialog.getWindow()).setType(Build.VERSION.SDK_INT >= 26 ? 2038 : 2002);
+                    dialog.show();
+                } else {
+                    alertName.show();
+                }
+            }
+        });
+
+        linearLayout.addView(button);
+        linLayout.addView(linearLayout);
+    }
+
+    private void InputLNum(LinearLayout linLayout, final int featNum, final String featName, final long maxValue) {
+        LinearLayout linearLayout = new LinearLayout(getContext);
+        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
+        layoutParams.setMargins(dp(8), dp(4), dp(8), dp(4));
+
+        final Button button = new Button(getContext);
+        long num = Preferences.loadPrefLong(featName, featNum);
+        button.setText(Html.fromHtml(featName + ": <font color='" + NumberTxtColor + "'>" + num + "</font>"));
+        button.setAllCaps(false);
+        button.setLayoutParams(layoutParams);
+        button.setBackground(rounded(BTN_COLOR, ITEM_CORNER));
+        button.setTextColor(TEXT_COLOR_2);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                AlertDialog.Builder alertName = new AlertDialog.Builder(getContext);
+                final EditText editText = new EditText(getContext);
+                if (maxValue != 0)
+                    editText.setHint("Max value: " + maxValue);
+                editText.setInputType(InputType.TYPE_CLASS_NUMBER);
+                editText.setKeyListener(DigitsKeyListener.getInstance("0123456789-"));
+                InputFilter[] FilterArray = new InputFilter[1];
+                FilterArray[0] = new InputFilter.LengthFilter(20);
+                editText.setFilters(FilterArray);
+                editText.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+                    @Override
+                    public void onFocusChange(View v, boolean hasFocus) {
+                        InputMethodManager imm = (InputMethodManager) getContext.getSystemService(Context.INPUT_METHOD_SERVICE);
+                        if (hasFocus) {
+                            imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, InputMethodManager.HIDE_IMPLICIT_ONLY);
+                        } else {
+                            imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
+                        }
+                    }
+                });
+                editText.requestFocus();
+
+                alertName.setTitle("Input number");
+                alertName.setView(editText);
+                LinearLayout layoutName = new LinearLayout(getContext);
+                layoutName.setOrientation(LinearLayout.VERTICAL);
+                layoutName.addView(editText); // displays the user input bar
+                alertName.setView(layoutName);
+
+                alertName.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int whichButton) {
+                        long num;
+                        try {
+                            String inp = editText.getText().toString();
+                            num = Long.parseLong(inp.isEmpty() ? "0" : inp);
+                            if (maxValue != 0 && num >= maxValue)
+                                num = maxValue;
+                        } catch (NumberFormatException ex) {
+                            if (maxValue != 0)
+                                num = maxValue;
+                            else
+                                num = Long.MAX_VALUE;
+                        }
+
+                        button.setText(Html.fromHtml(featName + ": <font color='" + NumberTxtColor + "'>" + num + "</font>"));
+                        Preferences.changeFeatureLong(featName, featNum, num);
+
+                        editText.setFocusable(false);
+                    }
+                });
+
+                alertName.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int whichButton) {
+                        // dialog.cancel(); // closes dialog
+                        InputMethodManager imm = (InputMethodManager) getContext.getSystemService(Context.INPUT_METHOD_SERVICE);
+                        imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
+                    }
+                });
+
+                if (overlayRequired) {
+                    AlertDialog dialog = alertName.create(); // display the dialog
+                    Objects.requireNonNull(dialog.getWindow()).setType(Build.VERSION.SDK_INT >= 26 ? 2038 : 2002);
+                    dialog.show();
+                } else {
+                    alertName.show();
+                }
+            }
+        });
+
+        linearLayout.addView(button);
+        linLayout.addView(linearLayout);
+    }
+
+    private void InputText(LinearLayout linLayout, final int featNum, final String featName) {
+        LinearLayout linearLayout = new LinearLayout(getContext);
+        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
+        layoutParams.setMargins(dp(8), dp(4), dp(8), dp(4));
+
+        final Button button = new Button(getContext);
+
+        String string = Preferences.loadPrefString(featName, featNum);
+        button.setText(Html.fromHtml(featName + ": <font color='" + NumberTxtColor + "'>" + string + "</font>"));
+
+        button.setAllCaps(false);
+        button.setLayoutParams(layoutParams);
+        button.setBackground(rounded(BTN_COLOR, ITEM_CORNER));
+        button.setTextColor(TEXT_COLOR_2);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                AlertDialog.Builder alertName = new AlertDialog.Builder(getContext);
+
+                final EditText editText = new EditText(getContext);
+                editText.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+                    @Override
+                    public void onFocusChange(View v, boolean hasFocus) {
+                        InputMethodManager imm = (InputMethodManager) getContext.getSystemService(Context.INPUT_METHOD_SERVICE);
+                        if (hasFocus) {
+                            imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, InputMethodManager.HIDE_IMPLICIT_ONLY);
+                        } else {
+                            imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
+                        }
+                    }
+                });
+                editText.requestFocus();
+
+                alertName.setTitle("Input text");
+                alertName.setView(editText);
+                LinearLayout layoutName = new LinearLayout(getContext);
+                layoutName.setOrientation(LinearLayout.VERTICAL);
+                layoutName.addView(editText); // displays the user input bar
+                alertName.setView(layoutName);
+
+                alertName.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int whichButton) {
+                        String str = editText.getText().toString();
+                        button.setText(Html.fromHtml(featName + ": <font color='" + NumberTxtColor + "'>" + str + "</font>"));
+                        Preferences.changeFeatureString(featName, featNum, str);
+                        editText.setFocusable(false);
+                    }
+                });
+
+                alertName.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int whichButton) {
+                        //dialog.cancel(); // closes dialog
+                        InputMethodManager imm = (InputMethodManager) getContext.getSystemService(Context.INPUT_METHOD_SERVICE);
+                        imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
+                    }
+                });
+
+
+                if (overlayRequired) {
+                    AlertDialog dialog = alertName.create(); // display the dialog
+                    dialog.getWindow().setType(Build.VERSION.SDK_INT >= 26 ? 2038 : 2002);
+                    dialog.show();
+                } else {
+                    alertName.show();
+                }
+            }
+        });
+
+        linearLayout.addView(button);
+        linLayout.addView(linearLayout);
+                                }
