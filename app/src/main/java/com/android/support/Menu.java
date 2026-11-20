@@ -992,3 +992,179 @@ public class Menu {
         linearLayout.addView(button);
         linLayout.addView(linearLayout);
                                 }
+    private void CheckBox(LinearLayout linLayout, final int featNum, final String featName, boolean switchedOn) {
+        final CheckBox checkBox = new CheckBox(getContext);
+        checkBox.setText(featName);
+        checkBox.setTextColor(TEXT_COLOR_2);
+        checkBox.setPadding(dp(6), dp(4), dp(6), dp(4));
+        checkBox.setButtonTintList(ColorStateList.valueOf(CheckBoxColor));
+        checkBox.setChecked(Preferences.loadPrefBool(featName, featNum, switchedOn));
+        checkBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                if (checkBox.isChecked()) {
+                    Preferences.changeFeatureBool(featName, featNum, isChecked);
+                } else {
+                    Preferences.changeFeatureBool(featName, featNum, isChecked);
+                }
+            }
+        });
+        linLayout.addView(checkBox);
+    }
+
+    @SuppressLint("SetTextI18n")
+    private void RadioButton(LinearLayout linLayout, final int featNum, String featName, final String list) {
+        //Credit: LoraZalora
+        final List<String> lists = new LinkedList<>(Arrays.asList(list.split(",")));
+
+        final TextView textView = new TextView(getContext);
+        textView.setText(featName + ":");
+        textView.setTextColor(TEXT_COLOR_2);
+
+        final RadioGroup radioGroup = new RadioGroup(getContext);
+        radioGroup.setPadding(dp(10), dp(6), dp(10), dp(6));
+        radioGroup.setOrientation(LinearLayout.VERTICAL);
+        radioGroup.addView(textView);
+
+        for (int i = 0; i < lists.size(); i++) {
+            final RadioButton Radioo = new RadioButton(getContext);
+            final String finalfeatName = featName, radioName = lists.get(i);
+            View.OnClickListener first_radio_listener = new View.OnClickListener() {
+                public void onClick(View v) {
+                    textView.setText(Html.fromHtml(finalfeatName + ": <font color='" + NumberTxtColor + "'>" + radioName));
+                    Preferences.changeFeatureInt(finalfeatName, featNum, radioGroup.indexOfChild(Radioo));
+                }
+            };
+            System.out.println(lists.get(i));
+            Radioo.setText(lists.get(i));
+            Radioo.setTextColor(Color.LTGRAY);
+            Radioo.setButtonTintList(ColorStateList.valueOf(RadioColor));
+            Radioo.setOnClickListener(first_radio_listener);
+            radioGroup.addView(Radioo);
+        }
+
+        int index = Preferences.loadPrefInt(featName, featNum);
+        if (index > 0) { //Preventing it to get an index less than 1. below 1 = null = crash
+            textView.setText(Html.fromHtml(featName + ": <font color='" + NumberTxtColor + "'>" + lists.get(index - 1)));
+            ((RadioButton) radioGroup.getChildAt(index)).setChecked(true);
+        }
+        linLayout.addView(radioGroup);
+    }
+
+    @SuppressLint("SetTextI18n")
+    private void Collapse(LinearLayout linLayout, final String text, final boolean expanded) {
+        LinearLayout.LayoutParams layoutParamsLL = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
+        layoutParamsLL.setMargins(dp(8), dp(6), dp(8), dp(2));
+
+        LinearLayout collapse = new LinearLayout(getContext);
+        collapse.setLayoutParams(layoutParamsLL);
+        collapse.setVerticalGravity(16);
+        collapse.setOrientation(LinearLayout.VERTICAL);
+
+        final LinearLayout collapseSub = new LinearLayout(getContext);
+        collapseSub.setVerticalGravity(16);
+        collapseSub.setPadding(0, dp(4), 0, dp(4));
+        collapseSub.setOrientation(LinearLayout.VERTICAL);
+        collapseSub.setBackground(rounded(CollapseSubBG, ITEM_CORNER));
+        collapseSub.setVisibility(View.GONE);
+        mCollapse = collapseSub;
+
+        final TextView textView = new TextView(getContext);
+        textView.setBackground(rounded(CollapseColor, ITEM_CORNER));
+        textView.setText("▽ " + text + " ▽");
+        textView.setGravity(Gravity.CENTER);
+        textView.setTextColor(TEXT_COLOR_2);
+        textView.setTypeface(null, Typeface.BOLD);
+        textView.setPadding(0, dp(8), 0, dp(8));
+
+        if (expanded) {
+            collapseSub.setVisibility(View.VISIBLE);
+            textView.setText("△ " + text + " △");
+        }
+
+        textView.setOnClickListener(new View.OnClickListener() {
+            boolean isChecked = expanded;
+
+            @Override
+            public void onClick(View v) {
+
+                boolean z = !isChecked;
+                isChecked = z;
+                if (z) {
+                    collapseSub.setVisibility(View.VISIBLE);
+                    textView.setText("△ " + text + " △");
+                    return;
+                }
+                collapseSub.setVisibility(View.GONE);
+                textView.setText("▽ " + text + " ▽");
+            }
+        });
+        collapse.addView(textView);
+        collapse.addView(collapseSub);
+        linLayout.addView(collapse);
+    }
+
+    private void Category(LinearLayout linLayout, String text) {
+        TextView textView = new TextView(getContext);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
+        lp.setMargins(dp(8), dp(6), dp(8), dp(3));
+        textView.setLayoutParams(lp);
+        textView.setBackground(rounded(CategoryBG, ITEM_CORNER));
+        textView.setText(Html.fromHtml(text));
+        textView.setGravity(Gravity.CENTER);
+        textView.setTextColor(TEXT_COLOR_2);
+        textView.setTypeface(null, Typeface.BOLD);
+        textView.setPadding(0, dp(5), 0, dp(5));
+        linLayout.addView(textView);
+    }
+
+    private void TextView(LinearLayout linLayout, String text) {
+        TextView textView = new TextView(getContext);
+        textView.setText(Html.fromHtml(text));
+        textView.setTextColor(TEXT_COLOR_2);
+        textView.setPadding(dp(10), dp(5), dp(10), dp(5));
+        linLayout.addView(textView);
+    }
+
+    private void WebTextView(LinearLayout linLayout, String text) {
+        WebView wView = new WebView(getContext);
+        wView.loadData(text, "text/html", "utf-8");
+        wView.setBackgroundColor(0x00000000); //Transparent
+        wView.setPadding(0, 5, 0, 5);
+        wView.getSettings().setCacheMode(WebSettings.LOAD_NO_CACHE);
+        linLayout.addView(wView);
+    }
+
+    private boolean isViewCollapsed() {
+        return rootFrame == null || mCollapsed.getVisibility() == View.VISIBLE;
+    }
+
+    //For our image a little converter
+    private int convertDipToPixels(int i) {
+        return (int) ((((float) i) * getContext.getResources().getDisplayMetrics().density) + 0.5f);
+    }
+
+    private int dp(int i) {
+        return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, (float) i, getContext.getResources().getDisplayMetrics());
+    }
+
+    //Background rounded dengan radius dalam dp
+    private GradientDrawable rounded(int color, int radiusDp) {
+        GradientDrawable gd = new GradientDrawable();
+        gd.setColor(color);
+        gd.setCornerRadius((float) dp(radiusDp));
+        return gd;
+    }
+
+    public void setVisibility(int view) {
+        if (rootFrame != null) {
+            rootFrame.setVisibility(view);
+        }
+    }
+
+    public void onDestroy() {
+        if (rootFrame != null) {
+            mWindowManager.removeView(rootFrame);
+        }
+    }
+}
