@@ -23,6 +23,7 @@ bool atkOn = false, defOn = false, cdOn = false;
 // Nilai pengali (slider)
 int crystalMul = 2;
 int statMul = 2;
+int cdMul = 2;
 // Instance untuk UnlockAllFloor (ditangkap otomatis)
 void *floorInstance = nullptr;
 
@@ -31,17 +32,19 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
 
     const char *features[] = {
             OBFUSCATE("Category_Aman"),
-            OBFUSCATE("Toggle_Anti Deteksi Hack"),          // featNum 0
+            OBFUSCATE("Toggle_Anti Deteksi Hack"),            // featNum 0
             OBFUSCATE("Category_Kristal"),
-            OBFUSCATE("Toggle_Kristal Lebih Banyak"),       // featNum 1
-            OBFUSCATE("SeekBar_Pengali Kristal_1_5"),       // featNum 2
+            OBFUSCATE("Toggle_Kristal Lebih Banyak"),         // featNum 1
+            OBFUSCATE("SeekBar_Kristal Multiply_1_10000"),    // featNum 2
             OBFUSCATE("Category_Stat"),
-            OBFUSCATE("Toggle_Serangan Naik"),              // featNum 3
-            OBFUSCATE("Toggle_Pertahanan Naik"),            // featNum 4
-            OBFUSCATE("Toggle_Cooldown Skill Turun"),       // featNum 5
-            OBFUSCATE("SeekBar_Pengali Stat_1_5"),          // featNum 6
+            OBFUSCATE("Toggle_Serangan Naik"),                // featNum 3
+            OBFUSCATE("Toggle_Pertahanan Naik"),              // featNum 4
+            OBFUSCATE("SeekBar_Stat Multiply_1_1000"),        // featNum 5
+            OBFUSCATE("Category_Cooldown"),
+            OBFUSCATE("Toggle_Cooldown Skill Turun"),         // featNum 6
+            OBFUSCATE("SeekBar_Cooldown Multiply_1_5"),       // featNum 7
             OBFUSCATE("Category_Lain"),
-            OBFUSCATE("Button_Buka Semua Lantai"),          // featNum 7
+            OBFUSCATE("Button_Buka Semua Lantai"),            // featNum 8
     };
 
     int Total_Feature = (sizeof features / sizeof features[0]);
@@ -77,12 +80,15 @@ void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featN
             defOn = boolean;
             break;
         case 5:
-            cdOn = boolean;
-            break;
-        case 6:
             statMul = value;
             break;
+        case 6:
+            cdOn = boolean;
+            break;
         case 7:
+            cdMul = value;
+            break;
+        case 8:
             if (floorInstance != nullptr) {
                 ((void (*)(void *)) getAbsoluteAddress(targetLibName, "0x195F26C"))(floorInstance);
             }
@@ -99,11 +105,13 @@ bool IsHackCrystal(void *instance) {
     return old_IsHackCrystal(instance);
 }
 
-// Kristal masuk dikali pengali (hanya yang positif)
+// Kristal masuk dikali pengali (hanya yang positif, dengan pengaman overflow)
 void (*old_AddCrystal)(void *instance, int crystal, void *source, int reason);
 void AddCrystal(void *instance, int crystal, void *source, int reason) {
     if (instance != nullptr && crystalOn && crystal > 0) {
-        crystal *= crystalMul;
+        long long r = (long long) crystal * crystalMul;
+        if (r > 2000000000LL) r = 2000000000LL;
+        crystal = (int) r;
     }
     old_AddCrystal(instance, crystal, source, reason);
 }
@@ -123,10 +131,11 @@ double BonusDef(void *instance) {
     return v;
 }
 
+// Cooldown (pengali sendiri, batas kecil)
 double (*old_BonusCD)(void *instance);
 double BonusCD(void *instance) {
     double v = old_BonusCD(instance);
-    if (instance != nullptr && cdOn) return v * statMul;
+    if (instance != nullptr && cdOn) return v * cdMul;
     return v;
 }
 
